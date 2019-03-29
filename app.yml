@@ -1,7 +1,7 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: An AWS CloudFormation stack to run a serverless password-protected photo gallery
+Description: An AWS CloudFormation stack to run a serverless photo gallery
 
 Parameters:
   websiteTitle:
@@ -25,23 +25,6 @@ Parameters:
   sessionDuration:
     Description: Number of seconds the user has access to the file
     Type: Number
-  kmsKeyId:
-    Description: ID of the KMS key used to encrypt other parameters
-    Type: String
-    NoEcho: true
-  cloudFrontKeypairId:
-    Description: CloudFront keypair ID encrypted with KMS
-    Type: String
-    Default: ''
-    NoEcho: true
-  encryptedCloudFrontPrivateKey:
-    Description: CloudFront private key encrypted with KMS
-    Type: String
-    NoEcho: true
-  encryptedHtpasswd:
-    Description: htpasswd file contents encrypted with KMS
-    Type: String
-    NoEcho: true
   sslCertificateArn:
     Description: ACM Certificate ARN
     Type: String
@@ -50,58 +33,6 @@ Conditions:
   createSSLCert: !Equals [ !Ref sslCertificateArn, "" ]
 
 Resources:
-
-  #
-  # Login Lambda function definition
-  #
-  LoginFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: index.handler
-      Runtime: nodejs8.10
-      CodeUri: dist/lambda-login.zip
-      Role: !GetAtt LambdaRole.Arn
-      Environment:
-        Variables:
-          WEBSITE_DOMAIN: !Ref website
-          SESSION_DURATION: !Ref sessionDuration
-          CLOUDFRONT_KEYPAIR_ID: !Ref cloudFrontKeypairId
-          ENCRYPTED_CLOUDFRONT_PRIVATE_KEY: !Ref encryptedCloudFrontPrivateKey
-          ENCRYPTED_HTPASSWD: !Ref encryptedHtpasswd
-      Events:
-        GetResource:
-          Type: Api
-          Properties:
-            Path: /login
-            Method: post
-
-  #
-  # Login IAM role so the Lambda can log (CloudWatch) and decrypt secrets (KMS)
-  #
-  LambdaRole:
-    Type: AWS::IAM::Role
-    Properties:
-      Path: /
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Sid: AllowLambdaServiceToAssumeRole
-            Effect: Allow
-            Action: ['sts:AssumeRole']
-            Principal:
-              Service: [lambda.amazonaws.com]
-      Policies:
-        - PolicyName: KmsDecrypt
-          PolicyDocument:
-            Statement:
-              - Effect: Allow
-                Resource: !Sub
-                  - arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/${id}
-                  - id: !Ref kmsKeyId
-                Action: ['kms:Decrypt']
-
   #
   # Resize Lambda function definition
   #
@@ -116,7 +47,7 @@ Resources:
         Variables:
           RESIZED_BUCKET: !Ref resizedBucket
       Timeout: 30
-      MemorySize: 1024
+      MemorySize: 512
 
   #
   # Resize IAM role so the Lambda can log (CloudWatch) and read/write S3 objects
@@ -172,7 +103,7 @@ Resources:
           WEBSITE: !Ref website
       Role: !GetAtt SiteBuilderLambdaRole.Arn
       Timeout: 30
-      MemorySize: 1024
+      MemorySize: 256
 
   #
   # Site Builder IAM role so the Lambda can log (CloudWatch) and read/write S3 objects
@@ -372,47 +303,20 @@ Resources:
               OriginAccessIdentity: !Sub
                 - origin-access-identity/cloudfront/${id}
                 - id: !Ref originAccessIdentity
-          - DomainName: !Sub
-              - ${apiID}.execute-api.${AWS::Region}.amazonaws.com
-              - apiID: !Ref ServerlessRestApi
-            Id: Custom-LoginAPI
-            CustomOriginConfig:
-              OriginProtocolPolicy: https-only
         CacheBehaviors:
           - TargetOriginId: S3-ResizedBucket
-            TrustedSigners:
-              - self
             ViewerProtocolPolicy: https-only
             PathPattern: 'pics/resized/*'
             ForwardedValues:
               QueryString: 'false'
           - TargetOriginId: S3-SourceBucket
-            TrustedSigners:
-              - self
             ViewerProtocolPolicy: https-only
             PathPattern: 'pics/original/*'
             ForwardedValues:
               QueryString: 'false'
-          - TargetOriginId: Custom-LoginAPI
-            ViewerProtocolPolicy: https-only
-            PathPattern: 'Prod/*'
-            AllowedMethods:
-              - HEAD
-              - DELETE
-              - POST
-              - GET
-              - OPTIONS
-              - PUT
-              - PATCH
-            ForwardedValues:
-              QueryString: 'false'
-              Headers:
-                - Accept
-                - Authorization
-                - Content-Type
-                - Referer
         Enabled: 'true'
         DefaultRootObject: index.html
+        HttpVersion: http2
         CustomErrorResponses:
           - ErrorCode: 403
             ResponsePagePath: /error.html
@@ -422,12 +326,11 @@ Resources:
             ResponseCode: 404
         DefaultCacheBehavior:
           TargetOriginId: S3-WebBucket
-          TrustedSigners:
-            - self
           ForwardedValues:
             QueryString: 'false'
           ViewerProtocolPolicy: redirect-to-https
         PriceClass: PriceClass_All
         ViewerCertificate:
           AcmCertificateArn: !If [ createSSLCert, !Ref SSLCert, !Ref sslCertificateArn ]
+          MinimumProtocolVersion: TLSv1.2_2018
           SslSupportMethod: sni-only
