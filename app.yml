@@ -28,6 +28,9 @@ Parameters:
   sslCertificateArn:
     Description: ACM Certificate ARN
     Type: String
+  googleanalytics:
+    Description: Google tracking id (gtag)
+    Type: String
 
 Conditions:
   createSSLCert: !Equals [ !Ref sslCertificateArn, "" ]
@@ -101,6 +104,7 @@ Resources:
           ORIGINAL_BUCKET: !Ref sourceBucket
           SITE_BUCKET: !Ref webBucket
           WEBSITE: !Ref website
+          GOOGLEANALYTICS: !Ref googleanalytics
       Role: !GetAtt SiteBuilderLambdaRole.Arn
       Timeout: 30
       MemorySize: 256

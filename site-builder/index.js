@@ -67,7 +67,8 @@ function uploadHomepageSite(albums, pictures, metadata) {
       var body = fs.readFileSync(f);
 
       if (path.basename(f) == 'error.html') {
-        body = body.toString().replace(/\{website\}/g, process.env.WEBSITE);
+        body = body.toString().replace(/\{website\}/g, process.env.WEBSITE)
+                              .replace(/\{gtag\}/g, process.env.GOOGLEANALYTICS);
       } else if (path.basename(f) == 'index.html') {
         var picturesHTML = '';
         for (var i = 0; i < albums.length; i++) {
@@ -81,7 +82,8 @@ function uploadHomepageSite(albums, pictures, metadata) {
                           "\t\t\t\t\t\t</article>\n";
         }
         body = body.toString().replace(/\{title\}/g, process.env.WEBSITE_TITLE)
-                              .replace(/\{pictures\}/g, picturesHTML);
+                              .replace(/\{pictures\}/g, picturesHTML)
+                              .replace(/\{gtag\}/g, process.env.GOOGLEANALYTICS);
       }
 
       var options = {
@@ -130,7 +132,8 @@ function uploadAlbumSite(title, pictures, metadata) {
         body = body.toString().replace(/\{title\}/g, renderedTitle)
                               .replace(/\{comment1\}/g, comment1)
                               .replace(/\{comment2\}/g, comment2)
-                              .replace(/\{pictures\}/g, picturesHTML);
+                              .replace(/\{pictures\}/g, picturesHTML)
+                              .replace(/\{gtag\}/g, process.env.GOOGLEANALYTICS);
       }
 
       var options = {
