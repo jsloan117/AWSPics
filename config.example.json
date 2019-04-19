@@ -6,5 +6,6 @@
   "resizedBucket=resized-images-here",
   "originAccessIdentity=EJG...",
   "sessionDuration=86400",
-  "sslCertificateArn="
+  "sslCertificateArn=",
+  "googleanalytics="
 ]
