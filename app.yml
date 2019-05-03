@@ -34,6 +34,7 @@ Parameters:
 
 Conditions:
   createSSLCert: !Equals [ !Ref sslCertificateArn, "" ]
+  googletrackingid: !Equals [ !Ref googleanalytics, "" ]
 
 Resources:
   #
